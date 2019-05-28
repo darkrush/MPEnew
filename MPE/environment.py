@@ -37,7 +37,7 @@ class MultiAgentEnv(Env):
         self.shared_reward = world.collaborative if hasattr(world, 'collaborative') else False
         #self.shared_reward = False
         self.time = 0
-        self.time_limit = 100
+        self.time_limit = 1000
         # configure spaces
         self.action_space = []
         self.observation_space = []
@@ -67,7 +67,6 @@ class MultiAgentEnv(Env):
             np.random.seed(seed)
 
     # step  this is  env.step()
-    #@profile
     def step(self, action_n):
         obs_n = []
         reward_n = []
@@ -99,9 +98,9 @@ class MultiAgentEnv(Env):
         
         return obs_n, reward_n, done_n, info_n
 
-    def reset(self):
+    def reset(self, if_eval = False):
         # reset world
-        self.reset_callback(self.world)
+        self.reset_callback(self.world, if_eval )
         # reset renderer
         self._reset_render()
         # record observations for each agent
@@ -174,27 +173,64 @@ class MultiAgentEnv(Env):
             # import rendering only if we need it (and don't import for headless machines)
             from . import rendering
             self.render_geoms = []
-            self.render_geoms_xform = []         
-            
+            self.render_geoms_xform = []
+
+            self.laser_start = 0
+            for entity in self.world.entities:
+                if 'agent' in entity.name:
+                    N = entity.dim_laser
+                    for idx_laser in range(N):
+                        theta_i = idx_laser*math.pi*2/N
+                        d = entity.r_laser
+                        end = (math.cos(theta_i)*d, math.sin(theta_i)*d)
+                        geom = rendering.make_line((0, 0),end) 
+                        xform = rendering.Transform()
+                        geom.set_color(0.0,1.0,0.0,alpha = 0.3)
+                        geom.add_attr(xform)
+                        self.render_geoms.append(geom)
+                        self.render_geoms_xform.append(xform)
+            self.nb_laser = len(self.render_geoms)-self.laser_start
+
+            self.entity_start = len(self.render_geoms)
             for entity in self.world.entities:
                 geom = rendering.make_circle(entity.size)
-                xform = rendering.Transform()                
-                if 'agent' in entity.name:          
-                    geom.set_color(*entity.color, alpha=0.5)
-
+                xform = rendering.Transform()
+                if 'agent' in entity.name:
+                    geom.set_color(*entity.color,alpha = 0.5)
                 else:
                     geom.set_color(*entity.color)
                 geom.add_attr(xform)
                 self.render_geoms.append(geom)
-                self.render_geoms_xform.append(xform)                
+                self.render_geoms_xform.append(xform)
+            self.nb_entity = len(self.render_geoms) - self.entity_start
 
+            self.wheel_line_start =len(self.render_geoms)
+            for entity in self.world.entities:
+                if 'agent' in entity.name:
+                    geom = rendering.make_line((0, 0),(-entity.size,0)) 
+                    xform = rendering.Transform()
+                    geom.set_color(0.0,0.0,0.0)
+                    geom.add_attr(xform)
+                    self.render_geoms.append(geom)
+                    self.render_geoms_xform.append(xform)
+                    geom = rendering.make_line((0, 0),(entity.size,0)) 
+                    xform = rendering.Transform()
+                    geom.set_color(1.0,0.0,0.0)
+                    geom.add_attr(xform)
+                    self.render_geoms.append(geom)
+                    self.render_geoms_xform.append(xform)
+            self.nb_wheel_line =len(self.render_geoms) - self.wheel_line_start
+            
             for fence in self.world.fences:
                 if fence.filled :
                     geom = rendering.make_polygon(fence.global_vertices)
                 else:
                     geom = rendering.make_polyline(fence.global_vertices)
+                xform = rendering.Transform() 
                 geom.set_color(*fence.color)
+                geom.add_attr(xform)
                 self.render_geoms.append(geom)
+                self.render_geoms_xform.append(xform)
 
             for viewer in self.viewers:
                 viewer.geoms = []
@@ -212,42 +248,34 @@ class MultiAgentEnv(Env):
                 pos = self.agents[i].state.p_pos
             self.viewers[i].set_bounds(pos[0]-cam_range, pos[0]+cam_range, pos[1]-cam_range, pos[1]+cam_range)
             # update geometry positions
-            for e, entity in enumerate(self.world.entities):
-                self.render_geoms_xform[e].set_translation(*entity.state.p_pos)
 
+            laser_start = 0
+            for e, entity in enumerate(self.world.entities):
                 if 'agent' in entity.name:
-                    self.render_geoms[e].set_color(*entity.color, alpha=0.5)
                     N = entity.dim_laser
                     theta = entity.state.theta
-                    start = (0, 0)
                     for idx_laser in range(N):
-                        d = entity.state.laser_state[idx_laser]
-                        theta_i = theta+idx_laser*math.pi*2/N
-                        end = (math.cos(theta_i)*d, math.sin(theta_i)*d)
-                        arrow = self.viewers[i].draw_line(start = start, end = end,color = [0.0,1.0,0.0])
-                        offset = rendering.Transform()
-                        offset.set_translation(*entity.state.p_pos)
-                        arrow.add_attr(offset)
+                        scale = entity.state.laser_state[idx_laser] /entity.r_laser
+                        self.render_geoms_xform[laser_start + idx_laser].set_translation(*entity.state.p_pos)
+                        self.render_geoms_xform[laser_start + idx_laser].set_rotation(theta)
+                        self.render_geoms_xform[laser_start + idx_laser].set_scale(scale, scale)
+                    laser_start+=N
 
-                    if entity.movable:
-                        radius = entity.size
-                        theta = entity.state.theta
-                        start = (0, 0)
-                        end = (-math.cos(theta)*radius, -math.sin(theta)*radius)
-                        arrow = self.viewers[i].draw_line(start = start, end = end,color = [0.0,0.0,0.0])
-                        offset = rendering.Transform()
-                        offset.set_translation(*entity.state.p_pos)
-                        arrow.add_attr(offset)
-                        
-                        theta+=entity.state.defle
-                        end = (math.cos(theta)*radius, math.sin(theta)*radius)
-                        arrow = self.viewers[i].draw_line(start = start, end = end,color = [1.0,0.0,0.0])
-                        offset = rendering.Transform()
-                        offset.set_translation(*entity.state.p_pos)
-                        arrow.add_attr(offset)
+            for e, entity in enumerate(self.world.entities):
+                self.render_geoms_xform[self.entity_start+e].set_translation(*entity.state.p_pos)
+                if 'agent' in entity.name:
+                    self.render_geoms[self.entity_start+e].set_color(*entity.color,alpha = 0.5)
                 else:
-                    self.render_geoms[e].set_color(*entity.color)
+                    self.render_geoms[self.entity_start+e].set_color(*entity.color)
 
+            for e, entity in enumerate(self.world.entities):
+                if 'agent' in entity.name:
+                    theta = entity.state.theta
+                    defle = entity.state.defle
+                    self.render_geoms_xform[2*e+self.wheel_line_start].set_translation(*entity.state.p_pos)
+                    self.render_geoms_xform[2*e+self.wheel_line_start].set_rotation(theta)
+                    self.render_geoms_xform[2*e+self.wheel_line_start+1].set_translation(*entity.state.p_pos)
+                    self.render_geoms_xform[2*e+self.wheel_line_start+1].set_rotation(theta+defle)
             # render to display or array
             results.append(self.viewers[i].render(return_rgb_array = mode=='rgb_array'))
 

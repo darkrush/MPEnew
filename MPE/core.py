@@ -21,6 +21,8 @@ class AgentState(EntityState):
         super(AgentState, self).__init__()
         # crash into sth
         self.crash = False
+        # crash into sth
+        self.reach = False
 
 # action of the agent
 class Action(object):
@@ -151,7 +153,7 @@ class World(object):
         self.dim_p = 2
         # simulation timestep
         self.dt = 0.1
-        
+        self.N = 1
 
     # return all entities in the world
     @property
@@ -203,16 +205,17 @@ class World(object):
         self.integrate_state(p_u)
         self.check_collisions()
     
-    #@profile
     def check_collisions(self):
         for ia, agent_a in enumerate(self.agents):
             if agent_a.state.crash :
                 continue
-            for ib in range(ia + 1, len(self.agents)):
+            for ib in range(len(self.agents)):
+                if ia==ib :
+                    continue
                 agent_b = self.agents[ib]
                 crash = check_AA_collisions(agent_a,agent_b)
                 agent_a.state.crash = crash
-                agent_b.state.crash = crash
+                #agent_b.state.crash = crash
                 if agent_a.state.crash :
                     break
             if agent_a.state.crash :
@@ -232,10 +235,10 @@ class World(object):
         return p_u
 
     # integrate physical state
-#    @profile
     def integrate_state(self, p_u):
         for i, agent in enumerate(self.agents):
             if not agent.movable: continue
+            if agent.state.crash: continue
             if (p_u[i] is not None):
                 agent.state.p_vel[0] = p_u[i][0]*agent.linear_gain
                 agent.state.p_vel[1] = agent.state.p_vel[0]*math.tan(agent.angle_gain*p_u[i][1])/agent.car_length

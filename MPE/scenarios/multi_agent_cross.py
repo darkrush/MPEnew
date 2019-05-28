@@ -3,61 +3,67 @@ from MPE.core import World, Agent, Landmark,  Fence
 from MPE.scenario import BaseScenario
 import math
 
+def hsv2rgb(h, s, v):
+    h = float(h)
+    s = float(s)
+    v = float(v)
+    h60 = h / 60.0
+    h60f = math.floor(h60)
+    hi = int(h60f) % 6
+    f = h60 - h60f
+    p = v * (1 - s)
+    q = v * (1 - f * s)
+    t = v * (1 - (1 - f) * s)
+    r, g, b = 0, 0, 0
+    if hi == 0: r, g, b = v, t, p
+    elif hi == 1: r, g, b = q, v, p
+    elif hi == 2: r, g, b = p, v, t
+    elif hi == 3: r, g, b = p, q, v
+    elif hi == 4: r, g, b = t, p, v
+    elif hi == 5: r, g, b = v, p, q
+    r, g, b = int(r * 255), int(g * 255), int(b * 255)
+    return np.array((r, g, b))
+
+
 class properties_file(object):
     def __init__(self):
-        self.world_dim = 2
-        self.agent_list = (
-            {'name' : 'agent 0', 'collide' : True, 'silent' : True, 'size' : 0.15, 'pos' : [-2.0,-0.3]},
-            {'name' : 'agent 1', 'collide' : True, 'silent' : True, 'size' : 0.15, 'pos' : [-2.0, 0.3]},
-        )
-        self.landmark_list = (
-            {'name' : 'landmark 0', 'collide' : False, 'movable' : False, 'color':[0.25, 0.25, 0.25], 'pos' : [1.0,0.0]},
-        )
         self.fence_list = (
             #{'anchor' : [0,0], 'rotation' : math.pi*0 , 'vertices' : ([0.0,0.0],[0.0,1.2],[0.6,1.2],[0.6,-0.6],[-1.2,-0.6],[-1.2,0]), 'close' : True, 'filled': False, 'color' : [0, 0, 0]},
-            {'anchor' : [0,0], 'rotation' : math.pi*0 , 'vertices' : ([-2.2,-2.0],[2.2,-2.0],[2.2,2.0],[-2.2,2.0]), 'close' : True, 'filled': False, 'color' : [0, 0, 0]},
+            #{'anchor' : [0,0], 'rotation' : math.pi*0 , 'vertices' : ([-2.2,-2.0],[2.2,-2.0],[2.2,2.0],[-2.2,2.0]), 'close' : True, 'filled': False, 'color' : [0, 0, 0]},
         )
-
-pre_dist = 0.6
-
 
 proper = properties_file()
 
 
 class Scenario(BaseScenario):
-    def make_world(self):
+    def make_world(self, N = 2):
         world = World()
         # set any world properties first
-        world.dim_c = proper.world_dim
+        world.dim_c = 2
+        world.N = N
 
-        self.reset_world(world)
-        return world
-
-    def reset_world(self, world):
-        # random properties for agents
         world.agents = []
-        for prop_dict in proper.agent_list:
+        #for idx,prop_dict in enumerate(proper.agent_list):
+        for idx in range(N):
             entity = Agent()
-            entity.name = prop_dict['name']
-            entity.collide = prop_dict['collide']
-            entity.silent = prop_dict['silent']
-            entity.size = prop_dict['size']
-            entity.state.p_pos = np.array(prop_dict['pos'])
-            entity.state.p_vel = np.zeros(world.dim_p)
-            entity.state.c = np.zeros(world.dim_c)
+            entity.i = idx
+            entity.name = 'agent %d'%idx
+            entity.collide = True
+            entity.silent = True
+            entity.size = 0.15
+            entity.color = hsv2rgb(360.0/N*idx,1.0,1.0)
             world.agents.append(entity)
-
-        world.landmarks = []
-        for prop_dict in proper.landmark_list:
-            entity = Landmark()
-            entity.name = prop_dict['name']
-            entity.collide = prop_dict['collide']
-            entity.movable = prop_dict['movable']
-            entity.color = np.array(prop_dict['color'])
-            entity.state.p_pos = np.array(prop_dict['pos'])
-            entity.state.p_vel = np.zeros(world.dim_p)
-            world.landmarks.append(entity)
         
+        world.landmarks = []
+        #for prop_dict in proper.landmark_list:
+        for idx in range(N):
+            entity = Landmark()
+            entity.name = 'landmark %d'%idx
+            entity.collide = False
+            entity.movable = False
+            entity.color = hsv2rgb(360.0/N*idx,1.0,1.0)
+            world.landmarks.append(entity)
+
         world.fences = []
         for prop_dict in proper.fence_list:
             entity = Fence()
@@ -69,12 +75,37 @@ class Scenario(BaseScenario):
             entity.color = np.array(prop_dict['color'])
             entity.calc_vertices()
             world.fences.append(entity)
-        world.assign_agent_colors()
+
+        self.reset_world(world)
+        return world
+
+    def reset_world(self, world,if_eval = False):
+        # random properties for agents
+        #for idx,prop_dict in enumerate(proper.agent_list) :
+        
+        for idx in range(world.N):
+            if if_eval:
+                theta = idx*math.pi*2/world.N
+                x = 2*np.cos(theta)
+                y = 2*np.sin(theta)
+                world.agents[idx].state.p_pos = np.array([x,y])
+                world.agents[idx].state.theta = theta+math.pi
+                world.landmarks[idx].state.p_pos = -np.array([x,y])
+            else:
+                world.agents[idx].state.p_pos = np.array([np.random.uniform(-2,2),np.random.uniform(-2,2)])
+                world.agents[idx].state.theta = np.random.uniform(0,math.pi*2)
+                world.landmarks[idx].state.p_pos = np.array([np.random.uniform(-2,2),np.random.uniform(-2,2)])
+            world.agents[idx].state.p_vel = np.zeros(world.dim_p)
+            world.agents[idx].state.c = np.zeros(world.dim_c)
+            world.agents[idx].state.crash = False
+            world.agents[idx].state.reach = False
+            world.landmarks[idx].state.p_vel = np.zeros(world.dim_p)
 
     def reward(self, agent, world, world_before):
         # Agents are rewarded based on minimum agent distance to each landmark, penalized for collisions
         rew = 0
-        a_before, l_before, a, l = (world_before.agents[0], world_before.landmarks[0], world.agents[0], world.landmarks[0])
+        agent_idx = agent.i
+        a_before, l_before, a, l = (world_before.agents[agent_idx], world_before.landmarks[agent_idx], world.agents[agent_idx], world.landmarks[agent_idx])
 
         dist_before = np.linalg.norm(a_before.state.p_pos - l_before.state.p_pos)
         dist        = np.linalg.norm(a.state.p_pos - l.state.p_pos)
@@ -89,7 +120,8 @@ class Scenario(BaseScenario):
  
     def done(self, agent, world):
         done = agent.state.crash
-        dist = np.linalg.norm(world.agents[0].state.p_pos - world.landmarks[0].state.p_pos)
+        agent_idx = agent.i
+        dist = np.linalg.norm(world.agents[agent_idx].state.p_pos - world.landmarks[agent_idx].state.p_pos)
         if(dist < agent.size):
             done = True
         return done
@@ -105,7 +137,7 @@ class Scenario(BaseScenario):
             l_laser = laser_agent_fence(agent,fence)
             l_laser_min = np.min(np.vstack([l_laser_min,l_laser]),axis = 0)
         agent.state.laser_state = l_laser_min
-        return np.hstack([agent.state.p_pos,agent.state.theta,l_laser_min])
+        return np.hstack([agent.state.p_pos,agent.state.theta,world.landmarks[agent.i].state.p_pos,l_laser_min])
 
 def laser_agent_agent(agent,agent_i):
     R = agent.r_laser
