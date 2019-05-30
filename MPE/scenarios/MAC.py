@@ -16,11 +16,17 @@ proper = properties_file()
 
 
 class Scenario(BaseScenario):
-    def make_world(self, N = 2):
+    def make_world(self, N = 2, potential_reward = 10):
         world = World()
         # set any world properties first
         world.dim_c = 2
         world.N = N
+
+        world.reach_reward = 15
+        world.crash_reward = -15
+        world.potential_reward = potential_reward
+        world.time_punish = -0.1
+        world.action_punish = -0.01
 
         world.agents = []
         #for idx,prop_dict in enumerate(proper.agent_list):
@@ -89,13 +95,15 @@ class Scenario(BaseScenario):
 
         dist_before = np.linalg.norm(a_before.state.p_pos - l_before.state.p_pos)
         dist        = np.linalg.norm(a.state.p_pos - l.state.p_pos)
-        rew += 10*(dist_before - dist)
-        rew -=0.1
+
+        rew += world.potential_reward*(dist_before - dist)
+        rew += world.time_punish
+
         if(dist < agent.size):
-            rew += 15
+            rew += world.reach_reward
 
         if agent.state.crash:
-            rew -= 15
+            rew += world.crash_reward
         return rew
  
     def done(self, agent, world):
