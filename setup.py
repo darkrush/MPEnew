@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='MPE',
-      version='0.0.1',
+      version='1.0.0',
       description='MPE',
       url='not update',
       author='Jiantao Qiu',

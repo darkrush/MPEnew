@@ -36,8 +36,7 @@ class MultiAgentEnv(Env):
         # if true, every agent has the same reward
         self.shared_reward = world.collaborative if hasattr(world, 'collaborative') else False
         #self.shared_reward = False
-        self.time = 0
-        self.time_limit = 1000
+
         # configure spaces
         self.action_space = []
         self.observation_space = []
@@ -80,12 +79,11 @@ class MultiAgentEnv(Env):
         # advance world state
         self.world.step() # core.step()  
         # record observation for each agent
-        self.time += 1
         
         for agent in self.agents:
             obs_n.append(self._get_obs(agent))
             reward_n.append(self._get_reward(agent))
-            done_n.append(self._get_done(agent) or self.time>= self.time_limit )
+            done_n.append(self._get_done(agent))
             info_n['n'].append(self._get_info(agent))
 
         # all agents get total reward in cooperative case, if shared reward, all agents have the same reward, and reward is sum
@@ -104,7 +102,6 @@ class MultiAgentEnv(Env):
         # reset renderer
         self._reset_render()
         # record observations for each agent
-        self.time = 0
         obs_n = []
         self.agents = self.world.policy_agents
         for agent in self.agents:
