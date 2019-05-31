@@ -38,18 +38,24 @@ class MultiAgentEnv(Env):
         #self.shared_reward = False
 
         # configure spaces
-        self.action_space = []
-        self.observation_space = []
-        for agent in self.agents:
-            total_action_space = []
-            # physical action space
-            u_action_space = spaces.Box(low=-1, high=+1, shape=(world.dim_p,), dtype=np.float32)# [-1,1]
-            if agent.movable:
-                total_action_space.append(u_action_space)
-            self.action_space.append(total_action_space[0])
-            # observation space
-            obs_dim = len(observation_callback(agent, self.world))
-            self.observation_space.append(spaces.Box(low=-np.inf, high=+np.inf, shape=(obs_dim,), dtype=np.float32))#[-inf,inf]
+        if self.world.action_space is not None:
+            self.action_space = self.world.action_space
+        else:
+            for agent in self.agents:
+                total_action_space = []
+                # physical action space
+                u_action_space = spaces.Box(low=-1, high=+1, shape=(world.dim_p,), dtype=np.float32)# [-1,1]
+                if agent.movable:
+                    total_action_space.append(u_action_space)
+                self.action_space.append(total_action_space[0])
+                
+        if self.world.observation_space is not None:
+            self.observation_space = self.world.observation_space
+        else:
+            for agent in self.agents:
+                # observation space
+                obs_dim = len(observation_callback(agent, self.world))
+                self.observation_space.append(spaces.Box(low=-np.inf, high=+np.inf, shape=(obs_dim,), dtype=np.float32))#[-inf,inf]
 
         # rendering
         self.shared_viewer = shared_viewer

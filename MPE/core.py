@@ -154,6 +154,8 @@ class World(object):
         # simulation timestep
         self.dt = 0.1
         self.N = 1
+        self.action_space = None
+        self.observation_space = None
 
     # return all entities in the world
     @property
@@ -169,7 +171,9 @@ class World(object):
     @property
     def scripted_agents(self):
         return [agent for agent in self.agents if agent.action_callback is not None]
+
     
+
     def assign_agent_colors(self):
         n_dummies = 0
         if hasattr(self.agents[0], 'dummy'):

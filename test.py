@@ -12,14 +12,17 @@ N = 2
 env = make_env('MAC_%d'%N)
 obs = env.reset(if_eval = False)
 action_space = env.action_space
-step_nb = 2000
+print(env.observation_space)
+print(env.action_space)
+step_nb = 1
 start = time.time()
 for i in range(step_nb):
-    env.render(mode="human",close=False)
+    #env.render(mode="human",close=False)
     act = []
     for i in range(N):
         act.append(np.array([0.2+0.5*np.random.randn(),0.0]))
     obs_n, reward_n, done_n, info_n = env.step(act)
+    print(obs_n)
     all_done = True
     for done in done_n:
         all_done &= done

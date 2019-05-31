@@ -1,4 +1,5 @@
 import numpy as np
+from gym import spaces
 from MPE.core import World, Agent, Landmark,  Fence
 from MPE.scenario import BaseScenario
 from MPE.utils import *
@@ -61,6 +62,12 @@ class Scenario(BaseScenario):
             entity.color = np.array(prop_dict['color'])
             entity.calc_vertices()
             world.fences.append(entity)
+        action_space_tuple =(spaces.Box(low=-1, high=+1, shape=(2,), dtype=np.float32),) * world.N
+        world.action_space = spaces.Tuple(action_space_tuple)
+        pos_box = spaces.Box(low=np.array([-math.inf,-math.inf,0,-math.inf,-math.inf]), high=np.array([math.inf,math.inf,math.pi*2,math.inf,math.inf]), dtype=np.float32)
+        laser_box = spaces.Box(low=0.0 ,high = world.agents[0].r_laser, shape =(world.agents[0].dim_laser,) , dtype=np.float32)
+        obs_space_tuple = (spaces.Tuple((pos_box,laser_box)),)* world.N
+        world.observation_space = spaces.Tuple(obs_space_tuple)
 
         self.reset_world(world)
         return world
@@ -125,4 +132,4 @@ class Scenario(BaseScenario):
             l_laser = laser_agent_fence(agent,fence)
             l_laser_min = np.min(np.vstack([l_laser_min,l_laser]),axis = 0)
         agent.state.laser_state = l_laser_min
-        return np.hstack([agent.state.p_pos,agent.state.theta,world.landmarks[agent.i].state.p_pos,l_laser_min])
+        return (np.hstack([agent.state.p_pos,agent.state.theta,world.landmarks[agent.i].state.p_pos]),l_laser_min)
