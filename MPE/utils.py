@@ -19,7 +19,7 @@ def hsv2rgb(h, s, v):
     elif hi == 3: r, g, b = p, q, v
     elif hi == 4: r, g, b = t, p, v
     elif hi == 5: r, g, b = v, p, q
-    r, g, b = int(r * 255), int(g * 255), int(b * 255)
+    #r, g, b = int(r * 255), int(g * 255), int(b * 255)
     return np.array((r, g, b))
 
 def laser_agent_agent(agent,agent_i):

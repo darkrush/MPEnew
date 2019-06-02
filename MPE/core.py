@@ -149,6 +149,7 @@ class World(object):
         self.agents = []
         self.landmarks = []
         self.fences = []
+        self.eval = False
         # position dimensionality
         self.dim_p = 2
         # simulation timestep
@@ -208,6 +209,7 @@ class World(object):
         # integrate physical state
         self.integrate_state(p_u)
         self.check_collisions()
+        self.check_reach()
     
     def check_collisions(self):
         for ia, agent_a in enumerate(self.agents):
@@ -228,7 +230,14 @@ class World(object):
                 agent_a.state.crash = check_AF_collisions(agent_a,fence)
                 if agent_a.state.crash :
                     break
-        
+    
+    def check_reach(self):
+        for a in self.agents:
+            idx = a.i
+            l = self.landmarks[idx]
+            dist = np.linalg.norm(a.state.p_pos - l.state.p_pos)
+            if dist < a.size + l.size:
+                a.state.reach = True
 
     # gather agent action forces
     def apply_action_u(self, p_u):
@@ -242,7 +251,27 @@ class World(object):
     def integrate_state(self, p_u):
         for i, agent in enumerate(self.agents):
             if not agent.movable: continue
-            if agent.state.crash: continue
+            if agent.state.crash or agent.state.reach:
+                if self.eval:
+                    continue
+                if agent.state.reach:
+                    self.landmarks[agent.i].state.p_pos = np.array([np.random.uniform(-2,2),np.random.uniform(-2,2)])
+                well = False
+                while(not well):
+                    well = True
+                    agent.state.p_pos = np.array([np.random.uniform(-2,2),np.random.uniform(-2,2)])
+                    for agent_b in self.agents:
+                        if agent_b is agent or agent_b.state.reach or agent_b.state.crash:
+                            continue
+                        dist = np.linalg.norm(agent.state.p_pos - agent_b.state.p_pos)
+                        if dist<agent_b.r_laser+agent.size:
+                            well = False
+                agent.state.theta = np.random.uniform(0,math.pi*2)
+                agent.state.reach = False
+                agent.state.crash = False
+
+                continue
+
             if (p_u[i] is not None):
                 agent.state.p_vel[0] = p_u[i][0]*agent.linear_gain
                 agent.state.p_vel[1] = agent.state.p_vel[0]*math.tan(agent.angle_gain*p_u[i][1])/agent.car_length

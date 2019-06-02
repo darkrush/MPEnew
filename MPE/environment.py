@@ -109,10 +109,12 @@ class MultiAgentEnv(Env):
         self._reset_render()
         # record observations for each agent
         obs_n = []
+        info_n = {'n': []}
         self.agents = self.world.policy_agents
         for agent in self.agents:
             obs_n.append(self._get_obs(agent))
-        return obs_n
+            info_n['n'].append(self._get_info(agent))
+        return obs_n,info_n
 
     # get info used for benchmarking
     def _get_info(self, agent):

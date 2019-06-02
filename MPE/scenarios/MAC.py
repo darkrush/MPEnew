@@ -22,13 +22,12 @@ class Scenario(BaseScenario):
         # set any world properties first
         world.dim_c = 2
         world.N = N
-
+        world.eval = False
         world.reach_reward = 15
         world.crash_reward = -15
         world.potential_reward = potential_reward
         world.time_punish = -0.1
         world.action_punish = -0.01
-
         world.agents = []
         #for idx,prop_dict in enumerate(proper.agent_list):
         for idx in range(N):
@@ -62,11 +61,15 @@ class Scenario(BaseScenario):
             entity.color = np.array(prop_dict['color'])
             entity.calc_vertices()
             world.fences.append(entity)
-        action_space_tuple =(spaces.Box(low=-1, high=+1, shape=(2,), dtype=np.float32),) * world.N
+        
+        action_low = np.array([-1.0,-1.0])
+        action_high = np.array([+1.0,+1.0])
+        action_space_tuple =(spaces.Box(low=action_low, high=action_high, dtype=np.float32),) * world.N
         world.action_space = spaces.Tuple(action_space_tuple)
-        pos_box = spaces.Box(low=np.array([-math.inf,-math.inf,0,-math.inf,-math.inf]), high=np.array([math.inf,math.inf,math.pi*2,math.inf,math.inf]), dtype=np.float32)
-        laser_box = spaces.Box(low=0.0 ,high = world.agents[0].r_laser, shape =(world.agents[0].dim_laser,) , dtype=np.float32)
-        obs_space_tuple = (spaces.Tuple((pos_box,laser_box)),)* world.N
+
+        obs_low  = np.array([-math.inf, -math.inf, 0        , -math.inf, -math.inf] + [0.0]*world.agents[0].dim_laser)
+        obs_high = np.array([ math.inf,  math.inf, math.pi*2,  math.inf,  math.inf] + [world.agents[0].r_laser]*world.agents[0].dim_laser )
+        obs_space_tuple = (spaces.Box(low=obs_low, high=obs_high, dtype=np.float32),)* world.N
         world.observation_space = spaces.Tuple(obs_space_tuple)
 
         self.reset_world(world)
@@ -75,7 +78,7 @@ class Scenario(BaseScenario):
     def reset_world(self, world,if_eval = False):
         # random properties for agents
         #for idx,prop_dict in enumerate(proper.agent_list) :
-        
+        world.eval = if_eval
         for idx in range(world.N):
             if if_eval:
                 theta = idx*math.pi*2/world.N
@@ -114,13 +117,10 @@ class Scenario(BaseScenario):
         return rew
  
     def done(self, agent, world):
-        done = agent.state.crash
-        agent_idx = agent.i
-        dist = np.linalg.norm(world.agents[agent_idx].state.p_pos - world.landmarks[agent_idx].state.p_pos)
-        if(dist < agent.size):
-            done = True
+        done = agent.state.crash or agent.state.reach
         return done
-    
+    def info(self, agent, world):
+        return {'crash':agent.state.crash,'reach':agent.state.reach}
     def observation(self, agent, world):
         l_laser_min = np.array([agent.r_laser]*agent.dim_laser)
         for agent_i  in world.agents:
@@ -132,4 +132,4 @@ class Scenario(BaseScenario):
             l_laser = laser_agent_fence(agent,fence)
             l_laser_min = np.min(np.vstack([l_laser_min,l_laser]),axis = 0)
         agent.state.laser_state = l_laser_min
-        return (np.hstack([agent.state.p_pos,agent.state.theta,world.landmarks[agent.i].state.p_pos]),l_laser_min)
+        return np.hstack([agent.state.p_pos,agent.state.theta,world.landmarks[agent.i].state.p_pos,l_laser_min])

@@ -16,7 +16,7 @@ def make_env(EnvName, timelimit = 300):
     else:
         world = scenario.make_world()
 
-    env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation,None,scenario.done)
+    env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation,scenario.info,scenario.done)
     if timelimit>0:
         env = TimeLimit(env,max_episode_steps=timelimit)
     return env
