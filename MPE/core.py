@@ -251,11 +251,16 @@ class World(object):
     def integrate_state(self, p_u):
         for i, agent in enumerate(self.agents):
             if not agent.movable: continue
-            if agent.state.crash or agent.state.reach:
+            if agent.state.reach:
                 if self.eval:
                     continue
-                if agent.state.reach:
-                    self.landmarks[agent.i].state.p_pos = np.array([np.random.uniform(-2,2),np.random.uniform(-2,2)])
+                self.landmarks[agent.i].state.p_pos = np.array([np.random.uniform(-2,2),np.random.uniform(-2,2)])
+                agent.state.reach = False
+                continue
+
+            if agent.state.crash:
+                if self.eval:
+                    continue
                 well = False
                 while(not well):
                     well = True
@@ -267,9 +272,7 @@ class World(object):
                         if dist<agent_b.r_laser+agent.size:
                             well = False
                 agent.state.theta = np.random.uniform(0,math.pi*2)
-                agent.state.reach = False
                 agent.state.crash = False
-
                 continue
 
             if (p_u[i] is not None):
